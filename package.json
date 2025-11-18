@@ -1,0 +1,27 @@
+{
+  "name": "run-dude-run",
+  "version": "1.0.0",
+  "description": "Repository for OSS course in the ITM major project. The purpose is for students to test the GitHub workflow",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Poppaluu/Run-Dude-Run.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Poppaluu/Run-Dude-Run/issues"
+  },
+  "homepage": "https://github.com/Poppaluu/Run-Dude-Run#readme",
+  "devDependencies": {
+    "vite": "^7.2.2"
+  }
+}
