@@ -28,14 +28,13 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.keyA = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
     this.keyD = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
     this.keyW = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+    this.keyS = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
   }
 
   update() {
     const body = this.body;
 
-    // ----------------------------
-    // HORIZONTAL MOVEMENT
-    // ----------------------------
+    // horizontal movement
     const left = this.cursors.left.isDown || this.keyA.isDown;
     const right = this.cursors.right.isDown || this.keyD.isDown;
 
@@ -47,9 +46,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
       body.setVelocityX(0);
     }
 
-    // ----------------------------
-    // JUMPING
-    // ----------------------------
+    // jumping
     const onGround = body.blocked.down || body.touching.down;
 
     if (onGround) {
@@ -71,11 +68,21 @@ export default class Player extends Phaser.GameObjects.Rectangle {
         this.maxJumps = this.baseMaxJumps;
       }
     }
+
+    // down movement
+    if (Phaser.Input.Keyboard.JustDown(this.keyS)) {
+      this.dropThrough = true;
+      this.scene.time.delayedCall(200, () => {
+        this.dropThrough = false;
+      });
+    }
+
+    if (this.keyS.isDown && !this.body.blocked.down) {
+      this.body.setVelocityY(500); // fast fall
+    }
   }
 
-  // ----------------------------
-  // METHODS PICKUPS CAN CALL
-  // ----------------------------
+  // player pickup methods
   heal(amount) {
     this.stats.health = Math.min(this.stats.health + amount, this.stats.maxHealth);
   }

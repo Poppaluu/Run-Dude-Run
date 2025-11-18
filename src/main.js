@@ -5,8 +5,10 @@ import GameScene from './scenes/GameScene.js';
 
 const config = {
   type: Phaser.AUTO,
-  width: 800,
+  width: 1600,
   height: 600,
+  pixelArt: true,
+  roundPixels: true,
   backgroundColor: '#1d1d1d',
   physics: {
     default: 'arcade',

@@ -7,7 +7,6 @@ export default class HealthPickup extends Phaser.GameObjects.Rectangle {
     this.healAmount = healAmount;
 
     scene.add.existing(this);
-    scene.physics.add.existing(this, true);
   }
 
   applyEffect(playerStats) {

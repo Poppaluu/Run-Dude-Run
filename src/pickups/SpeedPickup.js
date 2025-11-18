@@ -7,7 +7,6 @@ export default class SpeedPickup extends Phaser.GameObjects.Rectangle {
     this.speedBoost = speedBoost;
 
     scene.add.existing(this);
-    scene.physics.add.existing(this, true);
   }
 
   applyEffect(playerStats) {

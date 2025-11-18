@@ -5,7 +5,6 @@ export default class JumpPickup extends Phaser.GameObjects.Rectangle {
     super(scene, x, y, 20, 20, 0xffff00);
 
     scene.add.existing(this);
-    scene.physics.add.existing(this, true);
   }
 
   applyEffect(gameScene) {
