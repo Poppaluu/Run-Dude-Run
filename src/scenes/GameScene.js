@@ -7,6 +7,9 @@ import JumpPickup from '../pickups/JumpPickup.js';
 
 import ScrollingWorld from '../level/ScrollingWorld.js';
 
+import { submitGameSession, registerPlayer } from "../api/leaderboard.js";
+import { getPlayerId } from "../utils/storage.js";
+
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene');
@@ -15,7 +18,8 @@ export default class GameScene extends Phaser.Scene {
   create() {
     this.world = new ScrollingWorld(this, 32, 150);
     this.player = new Player(this, 100, 250);
-
+    // for temperary escape key to terminate game and see statistics
+    this.escapeKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     // Collisions
     this.physics.add.collider(
       this.player,
@@ -62,6 +66,11 @@ export default class GameScene extends Phaser.Scene {
     this.world.update();
     //fix later (issue created)
     this.updateStatsText();
+    if (Phaser.Input.Keyboard.JustDown(this.escapeKey)) {
+        this.endGame();
+    }
+
+
   }
 
   handlePickup(player, pickup) {
@@ -96,4 +105,24 @@ export default class GameScene extends Phaser.Scene {
       `\nMax Jumps: ${this.player.maxJumps}`
     );
   }
+    // Temperal Escape to end game and see statistics
+    endGame() {
+        const playTime = Math.floor((Date.now() - this.startTime) / 1000);
+
+        const sessionData = {
+            player_id: getPlayerId(),
+            score: this.player.stats.health,
+            play_time: playTime,
+            hits: this.hitCount,
+            pickups: this.pickupCount,
+            max_speed: this.maxSpeedReached,
+            max_jump_power: this.maxJumpPower,
+            health_left: this.player.stats.health
+        };
+
+        submitGameSession(sessionData);
+
+        this.scene.start("MenuScene");
+    }
+
 }
