@@ -28,6 +28,7 @@
     "vite": "^7.2.2"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.84.0",
     "phaser": "^3.90.0"
   }
 }
