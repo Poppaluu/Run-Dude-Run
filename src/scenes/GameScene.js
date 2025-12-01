@@ -19,6 +19,11 @@ export default class GameScene extends Phaser.Scene {
   create() {
     this.world = new ScrollingWorld(this, 32, 150);
     this.player = new Player(this, 100, 250);
+
+    this.add.image(0, 0, 'bg')
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(-10);
     // for temperary escape key to terminate game and see statistics
     this.escapeKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     // for count how many pickups occured

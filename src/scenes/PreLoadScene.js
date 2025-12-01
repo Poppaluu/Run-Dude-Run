@@ -10,10 +10,11 @@ export default class PreloadScene extends Phaser.Scene {
     this.add.text(20, 20, 'Loading...', { fontSize: '28px', fill: '#ffffff' });
 
     // platform and ground tiles
-    this.load.image('grass_tile', 'assets/images/platforms/grass_tile.png');
-    this.load.image('mud_tile', 'assets/images/platforms/mud_tile.png');
+    this.load.image('grass_tile', 'assets/images/platforms/grass_tile2.png');
+    this.load.image('mud_tile', 'assets/images/platforms/mud_tile2.png');
     this.load.image('platform_wood', 'assets/images/platforms/platform_wood.png');
     this.load.image('platform_wood_end', 'assets/images/platforms/platform_wood_end.png');
+    this.load.image('bg', 'assets/images/background/forest.jpg');
 
     //player sprite
     this.load.spritesheet('player', 'assets/images/player/player_run.png', {

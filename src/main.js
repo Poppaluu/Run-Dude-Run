@@ -6,8 +6,8 @@ import MenuScene from './scenes/MenuScene.js';
 
 const config = {
   type: Phaser.AUTO,
-  width: 1600,
-  height: 600,
+  width: 1200,
+  height: 550,
   pixelArt: true,
   roundPixels: true,
   backgroundColor: '#1d1d1d',
