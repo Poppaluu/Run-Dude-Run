@@ -59,6 +59,21 @@ export default class TileBuilder {
 
     return tiles;
   }
+  
+  /** 
+   * Build a line of spikes of 'length' tiles.
+   * Returns an array of created tiles.
+  */
+ 
+  buildSpikes(group, startX, y, length=3) {
+	const tiles = [];
+	for(let i = 1; i < length - 1; i++) {
+	  tiles.push(
+		this._placeTile(group, startX + i * this.T, y, 'spike_tile', false)
+	  );
+	}
+	return tiles;
+  }
 
   _placeTile(group, x, y, key, flipX = false) {
     const tile = group.create(x, y, key);
