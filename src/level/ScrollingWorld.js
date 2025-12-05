@@ -6,6 +6,7 @@ export default class ScrollingWorld {
     this.scene = scene;
     this.T = tileSize;
     this.scrollSpeed = scrollSpeed;
+    this.spawnedPlatforms = [];
 
     this.tileBuilder = new TileBuilder(scene, tileSize);
 
@@ -32,11 +33,25 @@ export default class ScrollingWorld {
 
     this.groundRows = 3;
 
-    // --- NEW: initial ground generation ---
+    // platform chances
+    this.platformChance = 0.005;              // current chance per update
+    this.platformChanceMin = 0.0001;          // never go below this
+    this.platformChanceMax = 0.25;           // never go above this
+    this.platformChanceIncreasePerColumn = 0.004; // how much to increase per ground column recycled
+    this.platformChanceDecreaseOnSpawn = 0.25;     // drop chance to zero and below
+    this.groundSinceLastPlatform = 0;        // how many columns since last platform
+
+    // Other obstacles
+    this.obstacleChances = {
+      platform: () => this.platformChance,
+      // placeholders for future obstacles:
+      spike: 0.0,
+      flyingEnemy: 0.0,
+    };
+
     this._initGround();
   }
 
-  
   // Fill the screen with ground columns, built by TileBuilder.
   _initGround() {
     const width = this.scene.scale.width;
@@ -71,17 +86,33 @@ export default class ScrollingWorld {
     }
   }
 
-  // ----- UPDATE / RECYCLING -----
-  update() {
+  // Increase platform chance as ground recycles
+  _increasePlatformChance() {
+    this.platformChance = Math.min(
+      this.platformChanceMax,
+      this.platformChance + this.platformChanceIncreasePerColumn
+    );
+  }
+
+  // Decrease platform chance right after a spawn
+  _decreasePlatformChanceOnSpawn() {
+    this.platformChance = Math.max(
+      this.platformChanceMin,
+      this.platformChance - this.platformChanceDecreaseOnSpawn
+    );
+    this.groundSinceLastPlatform = 0;
+  }
+
+  groundSpawn() {
     const totalWidth = this.numColumns * this.T;
 
     this.groundColumns.forEach((columnTiles, index) => {
-      const leftTile = columnTiles[0];
+      const leftGroundColumn = columnTiles[0];
 
       // when the whole column has gone off the left side
-      if (leftTile.x + this.T < 0) {
+      if (leftGroundColumn.x + this.T < 0) {
         // X position where the new column should appear (far right)
-        const newX = leftTile.x + totalWidth;
+        const newX = leftGroundColumn.x + totalWidth;
 
         // destroy the old tiles
         columnTiles.forEach(tile => tile.destroy());
@@ -103,7 +134,76 @@ export default class ScrollingWorld {
 
         // replace the entry in the array
         this.groundColumns[index] = newColumn;
+
+        // track distance since last platform & ramp chance up slowly
+        this.groundSinceLastPlatform++;
+        this._increasePlatformChance();
       }
     });
+  }
+
+  platformSpawn() {
+    if (Math.random() < this.platformChance) {
+      const width = this.scene.scale.width;
+
+      const newX = width + this.T;
+
+      const minLength = 3;
+      const maxLength = 7;
+      const length = minLength + Math.floor(Math.random() * (maxLength - minLength + 1));
+
+      const minRowsAboveGround = 4;
+      const maxRowsAboveGround = 10;
+      const rowsAboveGround =
+        minRowsAboveGround + Math.floor(Math.random() * (maxRowsAboveGround - minRowsAboveGround + 1));
+
+      const newY = this.groundTopY - rowsAboveGround * this.T;
+
+      // returns an array of tile sprites
+      const platformTiles = this.tileBuilder.buildWoodPlatform(
+        this.platforms,
+        newX,
+        newY,
+        length
+      );
+
+      platformTiles.forEach(tile => {
+        tile.body.setVelocityX(-this.scrollSpeed);
+        tile.body.allowGravity = false;
+        tile.body.immovable = true;
+      });
+
+      // track the entire platform as one unit
+      this.spawnedPlatforms.push(platformTiles);
+
+      // reduce spawn chance
+      this._decreasePlatformChanceOnSpawn();
+    }
+  }
+
+  _cleanupPlatforms() {
+    const leftLimit = -this.T * 2;
+
+    this.spawnedPlatforms = this.spawnedPlatforms.filter(platformTiles => {
+      const rightmost = platformTiles[platformTiles.length - 1];
+
+      if (rightmost.x < leftLimit) {
+        // destroy whole platform
+        platformTiles.forEach(tile => tile.destroy());
+        return false; // remove from array
+      }
+
+      return true; // keep it
+    });
+  }
+
+  update() {
+    this.groundSpawn();
+    this.platformSpawn();
+    this._cleanupPlatforms();
+
+    // this.spawnSpikes();
+    // this.spawnFlyingEnemies();
+    // this.spawnEnemy()
   }
 }
