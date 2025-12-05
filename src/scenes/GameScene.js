@@ -31,8 +31,10 @@ export default class GameScene extends Phaser.Scene {
     // counting how manytime the player hit enemy
     this.hitCount = 0;
     this.startTime = Date.now();
+	// Spike Collision Flag 
+	this.canCollideFlag = true;
 
-      // Collisions
+    // Collisions
     this.physics.add.collider(
       this.player,
       this.world.ground
@@ -64,6 +66,15 @@ export default class GameScene extends Phaser.Scene {
       this
     );
 
+	// Spikes (WIP)
+	this.physics.add.collider(
+	  this.player,
+	  this.world.spikes,
+	  null,
+	  this.handleSpikesCollision,
+	  this
+	);
+	
     // Stats display
     this.statsText = this.add.text(16, 16, '', {
       fontSize: '18px',
@@ -99,6 +110,27 @@ update() {
   handleEnemyCollision(player, enemy) {
     console.log('Hit enemy!');
     this.hitCount++;
+  }
+  
+  handleSpikesCollision(player, spikes) {
+	
+	if(!this.canCollideFlag) {
+	  return;
+	}
+	
+	this.canCollideFlag = false;
+	
+	
+	console.log('Hit Spike!');
+	this.hitCount++;
+	this.player.stats.health -= 10;
+	this.updateStatsText();
+    
+	//Start short invincibility
+	this.time.delayedCall(800, () => {
+	  this.canCollideFlag = true;
+	});
+	  
   }
 
   platformCollisionCheck(player, platform) {

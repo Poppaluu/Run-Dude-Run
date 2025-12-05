@@ -7,6 +7,7 @@ export default class ScrollingWorld {
     this.T = tileSize;
     this.scrollSpeed = scrollSpeed;
     this.spawnedPlatforms = [];
+	this.spawnedSpikes = [];
 
     this.tileBuilder = new TileBuilder(scene, tileSize);
 
@@ -30,6 +31,12 @@ export default class ScrollingWorld {
       allowGravity: false,
       immovable: true
     });
+	
+	// Spikes group
+	this.spikes = scene.physics.add.group({
+	  allowGravity: false,
+	  immovable: true
+	});
 
     this.groundRows = 3;
 
@@ -40,7 +47,10 @@ export default class ScrollingWorld {
     this.platformChanceIncreasePerColumn = 0.004; // how much to increase per ground column recycled
     this.platformChanceDecreaseOnSpawn = 0.25;     // drop chance to zero and below
     this.groundSinceLastPlatform = 0;        // how many columns since last platform
-
+	
+	// negative chances - Determines if spawning platform or obstacle.
+	this.negativeChance = 0;
+	
     // Other obstacles
     this.obstacleChances = {
       platform: () => this.platformChance,
@@ -142,44 +152,71 @@ export default class ScrollingWorld {
     });
   }
 
+  // This both handles platform and spikes. 
   platformSpawn() {
     if (Math.random() < this.platformChance) {
-      const width = this.scene.scale.width;
+		const width = this.scene.scale.width;
 
-      const newX = width + this.T;
+		const newX = width + this.T;
 
-      const minLength = 3;
-      const maxLength = 7;
-      const length = minLength + Math.floor(Math.random() * (maxLength - minLength + 1));
+		const minLength = 3;
+		const maxLength = 7;
+		const length = minLength + Math.floor(Math.random() * (maxLength - minLength + 1));
 
-      const minRowsAboveGround = 4;
-      const maxRowsAboveGround = 10;
-      const rowsAboveGround =
-        minRowsAboveGround + Math.floor(Math.random() * (maxRowsAboveGround - minRowsAboveGround + 1));
+		const minRowsAboveGround = 4;
+		const maxRowsAboveGround = 10;
+		const rowsAboveGround =
+		minRowsAboveGround + Math.floor(Math.random() * (maxRowsAboveGround - minRowsAboveGround + 1));
 
-      const newY = this.groundTopY - rowsAboveGround * this.T;
+		const newY = this.groundTopY - rowsAboveGround * this.T;	
+	  if(this.negativeChance < 3) {
+        // returns an array of tile sprites
+        const platformTiles = this.tileBuilder.buildWoodPlatform(
+          this.platforms,
+          newX,
+          newY,
+          length
+        );
 
-      // returns an array of tile sprites
-      const platformTiles = this.tileBuilder.buildWoodPlatform(
-        this.platforms,
-        newX,
-        newY,
-        length
-      );
+        platformTiles.forEach(tile => {
+          tile.body.setVelocityX(-this.scrollSpeed);
+          tile.body.allowGravity = false;
+          tile.body.immovable = true;
+        });
 
-      platformTiles.forEach(tile => {
-        tile.body.setVelocityX(-this.scrollSpeed);
-        tile.body.allowGravity = false;
-        tile.body.immovable = true;
-      });
+        // track the entire platform as one unit
+        this.spawnedPlatforms.push(platformTiles);
 
-      // track the entire platform as one unit
-      this.spawnedPlatforms.push(platformTiles);
-
-      // reduce spawn chance
-      this._decreasePlatformChanceOnSpawn();
-    }
+        // reduce spawn chance
+        this._decreasePlatformChanceOnSpawn();
+		this.negativeChance++;
+	  }
+	  else {
+		// returns an array of tile sprites
+		const spikesTiles = this.tileBuilder.buildSpikes(
+		  this.spikes,
+		  newX,
+		  newY,
+		  length
+		);
+		
+		spikesTiles.forEach(tile => {
+		  tile.body.setVelocityX(-this.scrollSpeed);
+		  tile.body.allowGravity = false;
+		  tile.body.immovable = true;
+		});
+		
+		// track the entire spikes as one unit
+		this.spawnedSpikes.push(spikesTiles);
+		
+		// reduce spawn chance, shares same with platform
+		this._decreasePlatformChanceOnSpawn();
+		this.negativeChance = 0;
+	  }	
+	}
   }
+  
+
 
   _cleanupPlatforms() {
     const leftLimit = -this.T * 2;
@@ -195,6 +232,18 @@ export default class ScrollingWorld {
 
       return true; // keep it
     });
+	
+	this.spawnedSpikes = this.spawnedSpikes.filter(spikesTiles => {
+	  const rightmost = spikesTiles[spikesTiles.length - 1];
+	  
+	  if (rightmost.x < leftLimit) {
+		//destroy whole spikes
+		spikesTiles.forEach(tile => tile.destroy());
+		return false; // remove from array
+	  }
+	  
+	  return true; // keep it
+	});
   }
 
   update() {

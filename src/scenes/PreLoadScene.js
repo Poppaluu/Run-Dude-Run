@@ -23,6 +23,9 @@ export default class PreloadScene extends Phaser.Scene {
     });
 
     //enemy sprite
+	
+	//Obstacle sprite
+	this.load.image('spike_tile', 'assets/images/obstacles/spike_tile.png');
 
   }
 
