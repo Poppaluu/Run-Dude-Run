@@ -1,5 +1,6 @@
 // src/level/ScrollingWorld.js
 import TileBuilder from './TileBuilder.js';
+import FlyingEnemy from '../entities/FlyingEnemy.js';
 
 export default class ScrollingWorld {
   constructor(scene, tileSize = 32, scrollSpeed = 150) {
@@ -7,6 +8,7 @@ export default class ScrollingWorld {
     this.T = tileSize;
     this.scrollSpeed = scrollSpeed;
     this.spawnedPlatforms = [];
+    this.spawnedEnemies = [];
 
     this.tileBuilder = new TileBuilder(scene, tileSize);
 
@@ -37,16 +39,18 @@ export default class ScrollingWorld {
     this.platformChance = 0.005;              // current chance per update
     this.platformChanceMin = 0.0001;          // never go below this
     this.platformChanceMax = 0.25;           // never go above this
-    this.platformChanceIncreasePerColumn = 0.004; // how much to increase per ground column recycled
+    this.platformChanceIncreasePerColumn = 0.0004; // how much to increase per ground column recycled
     this.platformChanceDecreaseOnSpawn = 0.25;     // drop chance to zero and below
     this.groundSinceLastPlatform = 0;        // how many columns since last platform
+
+    this.enemyChance = 0.004;
 
     // Other obstacles
     this.obstacleChances = {
       platform: () => this.platformChance,
       // placeholders for future obstacles:
       spike: 0.0,
-      flyingEnemy: 0.0,
+      flyingEnemy: () => this.enemyChance
     };
 
     this._initGround();
@@ -181,6 +185,31 @@ export default class ScrollingWorld {
     }
   }
 
+  spawnEnemy() {
+    if (Math.random() < this.enemyChance) {
+      const width = this.scene.scale.width;
+      const newX = width + this.T;
+
+      const minRowsAboveGround = 2;
+      const maxRowsAboveGround = 12;
+
+      const rowsAboveGround =
+        minRowsAboveGround +
+        Math.floor(Math.random() * (maxRowsAboveGround - minRowsAboveGround + 1));
+
+      const newY = this.groundTopY - rowsAboveGround * this.T;
+
+      const flyingEnemy = new FlyingEnemy(this.scene, newX, newY);
+
+      // add to physics group if you plan collisions vs player
+      this.enemies.add(flyingEnemy);
+
+      flyingEnemy.setScrollSpeed(this.scrollSpeed + 100);
+
+      this.spawnedEnemies.push(flyingEnemy);
+    }
+  }
+
   _cleanupPlatforms() {
     const leftLimit = -this.T * 2;
 
@@ -197,13 +226,30 @@ export default class ScrollingWorld {
     });
   }
 
+  _cleanupEnemies() {
+    const leftLimit = -this.T * 2;
+
+    this.spawnedEnemies = this.spawnedEnemies.filter(flyingEnemy => {
+      if (flyingEnemy.x < leftLimit) {
+        flyingEnemy.destroy();
+        return false;
+      }
+      return true;
+    });
+  }
+
+  _updateEnemies() {
+    this.spawnedEnemies.forEach(enemy => enemy.update(this.scene.time.now));
+  }
+
   update() {
     this.groundSpawn();
+    
     this.platformSpawn();
     this._cleanupPlatforms();
 
-    // this.spawnSpikes();
-    // this.spawnFlyingEnemies();
-    // this.spawnEnemy()
+    this.spawnEnemy();
+    this._cleanupEnemies();
+    this._updateEnemies();
   }
 }

@@ -14,6 +14,7 @@ import {calculateScore} from "../utils/scoring";
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene');
+    this.playTime = 0;
   }
 
   create() {
@@ -73,9 +74,11 @@ export default class GameScene extends Phaser.Scene {
     this.updateStatsText();
   }
 
-update() {
+update(time, delta) {
   this.player.update();
   this.world.update();
+
+  this.updateStatsText();
 
   if (Phaser.Input.Keyboard.JustDown(this.escapeKey)) {
     this.endGame();
@@ -110,11 +113,19 @@ update() {
   }
 
   updateStatsText() {
+    let playTime = Math.floor((Date.now() - this.startTime) / 1000);
+    let score = calculateScore(
+      playTime,
+      this.hitCount,
+      this.pickupCount,
+      this.player.stats.moveSpeed,
+      this.player.maxJumps,
+      this.player.stats.health
+    );
     this.statsText.setText(
-      `Health: ${this.player.stats.health}/${this.player.stats.maxHealth}` +
-      `\nSpeed: ${this.player.stats.moveSpeed}` +
-      `\nJump Power: ${-this.player.stats.jumpVelocity}` +
-      `\nMax Jumps: ${this.player.maxJumps}`
+      `Health: ${this.player.stats.health}/${this.player.stats.maxHealth}\n` +
+      `Score: ` + score
+      
     );
   }
     // Temperal Escape to end game and see statistics

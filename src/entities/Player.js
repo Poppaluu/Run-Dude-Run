@@ -28,6 +28,18 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.jumpCount = 0;
     this.extraJumpActive = false;
 
+    // --- Dash Logic ---
+    this.dashSpeed = 1000;         // how fast the dash moves
+    this.dashDuration = 175;      // milliseconds
+    this.dashCooldown = 600;      // milliseconds after dash
+    this.isDashing = false;
+    this.canDash = true;
+
+    // double-tap timing
+    this.doubleTapThreshold = 250; // ms within which taps count
+    this.lastTapTimeLeft = 0;
+    this.lastTapTimeRight = 0;
+
     // --- Input ---
     this.cursors = scene.input.keyboard.createCursorKeys();
     this.keyA = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
@@ -39,21 +51,71 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.anims.play('Idle');
   }
 
+  handleDash() {
+    const now = this.scene.time.now;
+
+    const leftDown = Phaser.Input.Keyboard.JustDown(this.cursors.left) ||
+                    Phaser.Input.Keyboard.JustDown(this.keyA);
+
+    const rightDown = Phaser.Input.Keyboard.JustDown(this.cursors.right) ||
+                      Phaser.Input.Keyboard.JustDown(this.keyD);
+
+    // --- Detect double-tap LEFT ---
+    if (leftDown) {
+      if (now - this.lastTapTimeLeft < this.doubleTapThreshold && this.canDash) {
+        this.startDash(-1);  // dash left
+      }
+      this.lastTapTimeLeft = now;
+    }
+
+    // --- Detect double-tap RIGHT ---
+    if (rightDown) {
+      if (now - this.lastTapTimeRight < this.doubleTapThreshold && this.canDash) {
+        this.startDash(1);  // dash right
+      }
+      this.lastTapTimeRight = now;
+    }
+  }
+
+  startDash(direction) {
+    this.isDashing = true;
+    this.canDash = false;
+
+    // lock velocity for dash
+    this.body.setVelocityX(direction * this.dashSpeed);
+
+    // Optional: lock gravity slightly so dash is clean
+    this.body.setAllowGravity(false);
+
+    // End dash after duration
+    this.scene.time.delayedCall(this.dashDuration, () => {
+      this.isDashing = false;
+      this.body.setAllowGravity(true);
+    });
+
+    // Reset dash availability after cooldown
+    this.scene.time.delayedCall(this.dashCooldown, () => {
+      this.canDash = true;
+    });
+  }
+
   update() {
     const body = this.body;
 
     // horizontal movement
     const left = this.cursors.left.isDown || this.keyA.isDown;
     const right = this.cursors.right.isDown || this.keyD.isDown;
-
-    if (left) {
-      body.setVelocityX(-this.stats.moveSpeed);
-      this.setFlipX(true);              // face left
-    } else if (right) {
-      body.setVelocityX(this.stats.moveSpeed);
-      this.setFlipX(false);             // face right
-    } else {
-      body.setVelocityX(0);
+    
+    if (!this.isDashing) {
+      if (left) {
+        body.setVelocityX(-this.stats.moveSpeed);
+        this.setFlipX(true);
+      } else if (right) {
+        body.setVelocityX(this.stats.moveSpeed);
+        this.setFlipX(false);
+      } else {
+        body.setVelocityX(0);
+      }
     }
 
     // jumping
@@ -87,6 +149,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.keyS.isDown && !this.body.blocked.down) {
       this.body.setVelocityY(500); // fast fall
     }
+
+    this.handleDash();
 
     // --- Animation logic ---
     if (!onGround) {

@@ -15,6 +15,10 @@ export default class PreloadScene extends Phaser.Scene {
     this.load.image('platform_wood', 'assets/images/platforms/platform_wood.png');
     this.load.image('platform_wood_end', 'assets/images/platforms/platform_wood_end.png');
     this.load.image('bg', 'assets/images/background/forest.jpg');
+    this.load.spritesheet('ufoEnemy', 'assets/images/obstacles/ufo_enemy.png',{
+      frameWidth: 32,
+      frameHeight: 32
+    })
 
     //player sprite
     this.load.spritesheet('player', 'assets/images/player/player_run.png', {
@@ -40,6 +44,14 @@ export default class PreloadScene extends Phaser.Scene {
     this.anims.create({
       key: 'Idle',
       frames: this.anims.generateFrameNumbers('player', { start: 6, end: 11 }),
+      frameRate: 10,
+      repeat: -1
+    });
+
+    // fly
+    this.anims.create({
+      key: 'Fly',
+      frames: this.anims.generateFrameNumbers('ufoEnemy', { start: 0, end: 3 }),
       frameRate: 10,
       repeat: -1
     });
