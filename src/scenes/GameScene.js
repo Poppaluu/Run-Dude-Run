@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+//import Phaser from 'phaser';
 import Player from '../entities/Player.js';
 
 import HealthPickup from '../pickups/HealthPickup.js';
