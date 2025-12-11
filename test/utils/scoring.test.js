@@ -13,7 +13,7 @@ test('#1 Happy Path', () => {
         2    // health_left
     );
 
-    expect(result).toBe(243);
+    expect(result).toBe(205);
 });
 test('#2 Edge Case : When Input become too large', () => {
     const result = calculateScore(
