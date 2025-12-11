@@ -2,7 +2,7 @@ name: deploy-githubPage.yml
 
 on:
   workflow_run:
-    workflows: ["Run Jest tests"] 
+    workflows: ["test-ci.yml"] 
     branches: [ main ]
     types:
       - completed
