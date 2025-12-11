@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { registerPlayer } from "../api/leaderboard.js";
 import { getPlayerId, setPlayerInfo } from "../utils/storage.js";
 import { NICKNAME_INPUT_STYLE } from "../config";
 import { supabase } from "../api/supabaseClient";
@@ -10,10 +11,16 @@ export default class MenuScene extends Phaser.Scene {
 
     async create() {
 
-        //Block the canvas from stealing input focus
+        // -------------------------------------------------
+        // 1) Block the canvas from stealing input focus
+        // -------------------------------------------------
         this.game.canvas.setAttribute("tabindex", "-1");
         this.game.canvas.blur();
 
+
+        // ============================
+        // Start game unified function
+        // ============================
         const startGame = async () => {
             const nickname = nicknameInput.value.trim();
             if (!nickname) {
@@ -23,7 +30,7 @@ export default class MenuScene extends Phaser.Scene {
 
             const playerId = getPlayerId();
             setPlayerInfo(playerId, nickname);
-
+            await registerPlayer(playerId, nickname);
             try {
                 nicknameInput.remove();
             } catch (_) {}
@@ -31,14 +38,19 @@ export default class MenuScene extends Phaser.Scene {
             this.scene.start("GameScene");
         };
 
+
+        // --------------------------
         // Title
+        // --------------------------
         this.add.text(50, 40, "Run Dude Run!", {
             fontSize: "40px",
             fill: "#ffffff"
         });
 
 
+        // --------------------------
         // Nickname input DOM
+        // --------------------------
         const nicknameInput = document.createElement("input");
         nicknameInput.type = "text";
         nicknameInput.placeholder = "Enter nickname";
@@ -51,10 +63,15 @@ export default class MenuScene extends Phaser.Scene {
         document.body.appendChild(nicknameInput);
         nicknameInput.focus();
 
+        // -------------------------------------------------
+        // 2) Since the canvas steals focus right after the scene transition,
+        //       force refocusing on the input after a short delay
+        // -------------------------------------------------
         setTimeout(() => {
             nicknameInput.focus();
             nicknameInput.select();
         }, 150);
+
 
         // Enter key starts the game
         nicknameInput.addEventListener("keydown", async (event) => {
@@ -65,7 +82,9 @@ export default class MenuScene extends Phaser.Scene {
         });
 
 
-        //Block Phaser key input while the input is focused
+        // -------------------------------------------------
+        // 3) Completely block Phaser key input while the input is focused
+        // -------------------------------------------------
         window.addEventListener(
             "keydown",
             (e) => {
@@ -79,7 +98,10 @@ export default class MenuScene extends Phaser.Scene {
             true
         );
 
+
+        // --------------------------
         // Start button
+        // --------------------------
         const startButton = this.add.text(50, 220, "[ Start Game ]", {
             fontSize: "26px",
             fill: "#00ff00"
@@ -89,7 +111,10 @@ export default class MenuScene extends Phaser.Scene {
             await startGame();
         });
 
+
+        // --------------------------
         // Leaderboard Section
+        // --------------------------
         this.add.text(350, 120, "Leaderboard (Top 10)", {
             fontSize: "24px",
             fill: "#ffffff"
@@ -104,29 +129,25 @@ export default class MenuScene extends Phaser.Scene {
 
 
 
+    // ==================================================================
     // Leaderboard
+    // ==================================================================
 
     async refreshLeaderboard(limit = 10) {
-        // Clear old texts
         if (this.leaderboardTexts) {
             this.leaderboardTexts.forEach(t => t.destroy());
         }
         this.leaderboardTexts = [];
-
-        if (this.personalInfoTexts) {
-            this.personalInfoTexts.forEach(t => t.destroy());
-        }
-        this.personalInfoTexts = [];
 
         const playerId = getPlayerId();
 
         const { data, error } = await supabase
             .from("game_sessions")
             .select(`
-                player_id,
-                score,
-                players (nickname)
-            `)
+            player_id,
+            score,
+            players (nickname)
+        `)
             .order("score", { ascending: false });
 
         if (error) {
@@ -134,8 +155,49 @@ export default class MenuScene extends Phaser.Scene {
             return;
         }
 
-        //Top scores
-        const top = data.slice(0, limit);
+        // Unique players only
+        const unique = [];
+        const seen = new Set();
+
+        for (const row of data) {
+            if (!seen.has(row.player_id)) {
+                seen.add(row.player_id);
+                unique.push(row);
+            }
+        }
+
+        // ================================================
+        // PERSONAL INFO
+        // ================================================
+        let myRank = null;
+        let myBestScore = null;
+
+        for (let i = 0; i < unique.length; i++) {
+            const row = unique[i];
+            if (row.player_id === playerId) {
+                myRank = i + 1;
+                myBestScore = row.score;
+                break;
+            }
+        }
+        if (this.personalInfoTexts) {
+            this.personalInfoTexts.forEach(t => t.destroy());
+        }
+        this.personalInfoTexts = [];
+
+        const baseY = 170;
+
+        const bestScoreText = this.add.text(
+            350,
+            baseY - 80,
+            `Your Best: ${myBestScore ?? "-"} points & Your Rank: ${myRank ? "#" + myRank : "-"}/${unique.length}`,
+            { fontSize: "20px", fill: "#ffffff" }
+        );
+
+        this.personalInfoTexts.push(bestScoreText);
+
+
+        const top = unique.slice(0, limit);
 
         const medals = ["🥇", "🥈", "🥉"];
 
@@ -150,6 +212,11 @@ export default class MenuScene extends Phaser.Scene {
                 fill: "#ffffff"
             };
 
+            const isMe = row.player_id === playerId;
+            if (isMe) {
+                style.fill = "#ffff00";
+            }
+
             const text = this.add.text(
                 350,
                 160 + i * 28,
@@ -157,25 +224,20 @@ export default class MenuScene extends Phaser.Scene {
                 style
             );
 
+            if (isMe) {
+                const bg = this.add.rectangle(
+                    350 - 10,
+                    160 + i * 28 + 10,
+                    330,
+                    26,
+                    0xffff00,
+                    0.25
+                ).setOrigin(0, 0.5);
+                text.setDepth(1);
+                this.leaderboardTexts.push(bg);
+            }
+
             this.leaderboardTexts.push(text);
         });
-
-        // PB
-        const myRuns = data.filter(row => row.player_id === playerId);
-
-        const myBestScore = myRuns.length
-            ? Math.max(...myRuns.map(r => r.score))
-            : null;
-
-        const myRank = data.findIndex(row => row.player_id === playerId) + 1;
-
-        const bestScoreText = this.add.text(
-            350,
-            90,
-            `Your Best: ${myBestScore ?? "-"}  |  Rank: ${myRank > 0 ? "#" + myRank : "-"}/${data.length}`,
-            { fontSize: "20px", fill: "#ffffff" }
-        );
-
-        this.personalInfoTexts.push(bestScoreText);
     }
 }
