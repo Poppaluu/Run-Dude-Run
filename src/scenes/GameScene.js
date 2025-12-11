@@ -7,36 +7,38 @@ import JumpPickup from '../pickups/JumpPickup.js';
 
 import ScrollingWorld from '../level/ScrollingWorld.js';
 
-import { submitGameSession, registerPlayer } from "../api/leaderboard.js";
+import { submitGameSession } from "../api/leaderboard.js";
 import { getPlayerId } from "../utils/storage.js";
-import {calculateScore} from "../utils/scoring";
+import {calculateScore} from "../utils/scoring.js";
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene');
     this.playTime = 0;
+    this.enemyScore = 0;
   }
 
   create() {
     this.world = new ScrollingWorld(this, 32, 150);
     this.player = new Player(this, 100, 250);
 
+    //reset score
+    this.playTime   = 0;
+    this.enemyScore = 0;
+
     this.add.image(0, 0, 'bg')
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(-10);
-    // for temperary escape key to terminate game and see statistics
+
+    //for temperary escape key to terminate game and see statistics
     this.escapeKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    // for count how many pickups occured
-    this.pickupCount = 0;
-    // counting how manytime the player hit enemy
-    this.hitCount = 0;
-    this.startTime = Date.now();
-    // Collision Flags
+
+    //Collision flags
     this.canCollideSpikeFlag = true;
     this.canCollideEnemyFlag = true;
 
-    // Collisions
+    //Collisions
     this.physics.add.collider(
       this.player,
       this.world.ground
@@ -68,14 +70,14 @@ export default class GameScene extends Phaser.Scene {
       this
     );
 
-	// Spikes (WIP)
-	this.physics.add.collider(
-	  this.player,
-	  this.world.spikes,
-	  null,
-	  this.handleSpikesCollision,
-	  this
-	);
+    // Spikes (WIP)
+    this.physics.add.collider(
+      this.player,
+      this.world.spikes,
+      null,
+      this.handleSpikesCollision,
+      this
+    );
 	
     // Stats display
     this.statsText = this.add.text(16, 16, '', {
@@ -86,17 +88,24 @@ export default class GameScene extends Phaser.Scene {
     this.updateStatsText();
   }
 
-update(time, delta) {
-  this.player.update();
-  this.world.update();
+  update(time, delta) {
+    this.player.update();
+    this.world.update();
 
-  this.updateStatsText();
+    this.playTime += delta / 1000;
 
-  if (Phaser.Input.Keyboard.JustDown(this.escapeKey)) {
-    this.endGame();
+    this.updateStatsText();
+
+    if (Phaser.Input.Keyboard.JustDown(this.escapeKey)) {
+      this.endGame();
+    }
+
+    if(this.player.stats.health <= 0){
+      this.endGame();
+    }
   }
-}
 
+  //not in use at the moment
   handlePickup(player, pickup) {
     if (pickup instanceof HealthPickup) {
       player.heal(pickup.healAmount || 25);
@@ -105,7 +114,6 @@ update(time, delta) {
     } else if (pickup instanceof JumpPickup) {
       player.grantExtraJump();
     }
-    this.pickupCount++;
     pickup.destroy();
 
     this.updateStatsText();
@@ -119,18 +127,16 @@ update(time, delta) {
       return;
     }
     
-    this.canCollideEnemyFlag = false;
-
     const isAbove = player.body.bottom <= enemy.body.top;
 
     if (isAbove) {
       console.log('Killed enemy!');
-      this.hitCount++;
       //player bounce up
       playerBody.velocity.y = -500;
+      this.enemyScore += 10;
       enemy.disableBody(true, true);
-    } else {
-        console.log('Bumped into the enemy!');
+    } 
+    else if(!isAbove && this.canCollideEnemyFlag) {
         this.canCollideEnemyFlag = false;
         this.player.stats.health -= 50;
 
@@ -155,9 +161,6 @@ update(time, delta) {
     
     this.canCollideSpikeFlag = false;
     
-    
-    console.log('Hit Spike!');
-    this.hitCount++;
     this.player.stats.health -= 10;
     this.updateStatsText();
       
@@ -168,6 +171,7 @@ update(time, delta) {
       
   }
 
+  //player can dash trhough platforms
   platformCollisionCheck(player, platform) {
     if (player.dropThrough) return false;
     return (
@@ -177,46 +181,31 @@ update(time, delta) {
   }
 
   updateStatsText() {
-    let playTime = Math.floor((Date.now() - this.startTime) / 1000);
-    let score = calculateScore(
-      playTime,
-      this.hitCount,
-      this.pickupCount,
-      this.player.stats.moveSpeed,
-      this.player.maxJumps,
-      this.player.stats.health
-    );
+    const playTime = Math.floor(this.playTime);
+    const score = calculateScore(playTime, this.enemyScore);
+    
     this.statsText.setText(
       `Health: ${this.player.stats.health}/${this.player.stats.maxHealth}\n` +
-      `Score: ` + score
-      
+      `Time: ${playTime}s\n` +
+      `Score: ${score}`
     );
   }
-    // Temperal Escape to end game and see statistics
-    endGame() {
-        const playTime = Math.floor((Date.now() - this.startTime) / 1000);
-        const score = calculateScore(
-            playTime,
-            this.hitCount,
-            this.pickupCount,
-            this.player.stats.moveSpeed,
-            this.player.maxJumps,
-            this.player.stats.health
-        );
-        const sessionData = {
-            player_id: getPlayerId(),
-            play_time: playTime,
-            score: score ?? 0,
-            hits: this.hitCount,
-            pickups: this.pickupCount,
-            max_speed: this.player.stats.moveSpeed,
-            max_jump_power: this.player.maxJumps,
-            health_left: this.player.stats.health
-        };
-        console.log(sessionData);
-        submitGameSession(sessionData);
 
-        this.scene.start("MenuScene");
-    }
+  //End game and see statistics
+  endGame() {
+    const playTime = Math.floor(this.playTime);
+    const score = calculateScore(playTime, this.enemyScore);
+
+    const sessionData = {
+      player_id: getPlayerId(),
+      play_time: playTime,
+      score: score ?? 0
+    };
+
+    console.log(sessionData);
+    submitGameSession(sessionData);
+
+    this.scene.start("MenuScene");
+  }
 
 }

@@ -8,15 +8,9 @@ export async function fetchPlayerStats(playerId) {
     const { data, error } = await supabase
         .from("game_sessions")
         .select(`
-      score,
-      play_time,
-      hits,
-      pickups,
-      max_speed,
-      max_jump_power,
-      health_left,
-      created_at
-    `)
+            score,
+            play_time
+        `)
         .eq("player_id", playerId);
 
     if (error) console.error("Failed to fetch player stats:", error);
