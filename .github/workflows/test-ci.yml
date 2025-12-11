@@ -1,4 +1,4 @@
-name: test-ci.yml
+name: Run Jest tests
 
 on:
   push:
