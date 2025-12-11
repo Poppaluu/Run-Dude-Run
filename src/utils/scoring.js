@@ -15,5 +15,5 @@ export function calculateScore(
         Math.floor(max_jump_power * 1.5) +
         (health_left * 3);
 
-    return Math.max(0, score);  // ensure non-negative score
+    return Math.min(Math.max(0, score), Number.MAX_VALUE);  // ensure non-negative score
 }

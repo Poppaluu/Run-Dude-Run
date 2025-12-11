@@ -60,7 +60,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     const rightDown = Phaser.Input.Keyboard.JustDown(this.cursors.right) ||
                       Phaser.Input.Keyboard.JustDown(this.keyD);
 
-    // --- Detect double-tap LEFT ---
+    // Detect double-tap LEFT
     if (leftDown) {
       if (now - this.lastTapTimeLeft < this.doubleTapThreshold && this.canDash) {
         this.startDash(-1);  // dash left
@@ -68,7 +68,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.lastTapTimeLeft = now;
     }
 
-    // --- Detect double-tap RIGHT ---
+    // Detect double-tap RIGHT
     if (rightDown) {
       if (now - this.lastTapTimeRight < this.doubleTapThreshold && this.canDash) {
         this.startDash(1);  // dash right
@@ -152,9 +152,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     this.handleDash();
 
-    // --- Animation logic ---
+    // Animation logic
     if (!onGround) {
-      // No jump anim in your sheet, so reuse Running when in air
       this.anims.play('Running', true);
     } else if (body.velocity.x !== 0) {
       this.anims.play('Running', true);
