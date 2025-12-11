@@ -25,6 +25,7 @@
   },
   "homepage": "https://github.com/Poppaluu/Run-Dude-Run#readme",
   "devDependencies": {
+    "jest": "^30.2.0",
     "vite": "^7.2.2"
   },
   "dependencies": {
