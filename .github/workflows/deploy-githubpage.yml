@@ -1,8 +1,8 @@
-name: deploy-githubPage.yml
+name: Build Vite app
 
 on:
   workflow_run:
-    workflows: ["test-ci.yml"] 
+    workflows: ["Run Jest tests"] 
     branches: [ main ]
     types:
       - completed
