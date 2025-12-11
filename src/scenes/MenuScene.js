@@ -1,4 +1,4 @@
-//import Phaser from "phaser";
+import Phaser from "phaser";
 import { registerPlayer } from "../api/leaderboard.js";
 import { getPlayerId, setPlayerInfo } from "../utils/storage.js";
 import { NICKNAME_INPUT_STYLE } from "../config";
