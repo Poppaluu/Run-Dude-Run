@@ -1,14 +1,16 @@
-name: Build game and upload artifact
+name: Build game and publish release
 
 on:
-  workflow_run:
-    workflows: ["Run Jest tests"] 
-    branches: [ main ]
-    types:
-      - completed
+  push:
+    branches: [ "main" ]
+    tags:
+      - "v*" 
+
+permissions:
+  contents: write 
 
 jobs:
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,7 +24,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build Vite project
         run: npm run build
@@ -37,3 +39,11 @@ jobs:
         with:
           name: run-dude-run-dist
           path: run-dude-run-dist.zip
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: run-dude-run-dist.zip
+          generate_release_notes: true   # 커밋 기준으로 release notes 자동 생성
+          make_latest: true              # 최신 Release로 표시
