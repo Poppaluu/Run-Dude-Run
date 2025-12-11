@@ -7,6 +7,13 @@ export default class ScrollingWorld {
     this.scene = scene;
     this.T = tileSize;
     this.scrollSpeed = scrollSpeed;
+
+    this.baseScrollSpeed = scrollSpeed;
+    this.scrollSpeed = scrollSpeed;
+    this.maxScrollSpeed = 350;
+
+    this.maxDifficulty = 120;
+
     this.spawnedPlatforms = [];
 	  this.spawnedSpikes = [];
     this.spawnedEnemies = [];
@@ -53,6 +60,8 @@ export default class ScrollingWorld {
     // negative chances - Determines if spawning platform or obstacle.
     this.negativeChance = 0;
     this.enemyChance = 0.01;
+    this.enemyChanceMin = 0.01;
+    this.enemyChanceMax = 0.10;
 	
     // Other obstacles
     this.obstacleChances = {
@@ -91,7 +100,7 @@ export default class ScrollingWorld {
 
       // give every tile a scrolling velocity to the left
       columnTiles.forEach(tile => {
-        tile.body.setVelocityX(-this.scrollSpeed);
+        tile.body.setVelocityX(-150);
         tile.body.allowGravity = false;
         tile.body.immovable = true;
       });
@@ -141,7 +150,7 @@ export default class ScrollingWorld {
 
         // give them scrolling velocity again
         newColumn.forEach(tile => {
-          tile.body.setVelocityX(-this.scrollSpeed);
+          tile.body.setVelocityX(-150);
           tile.body.allowGravity = false;
           tile.body.immovable = true;
         });
@@ -183,7 +192,7 @@ export default class ScrollingWorld {
         );
 
         platformTiles.forEach(tile => {
-          tile.body.setVelocityX(-this.scrollSpeed);
+          tile.body.setVelocityX(-150);
           tile.body.allowGravity = false;
           tile.body.immovable = true;
         });
@@ -205,7 +214,7 @@ export default class ScrollingWorld {
 		);
 		
 		spikesTiles.forEach(tile => {
-		  tile.body.setVelocityX(-this.scrollSpeed);
+		  tile.body.setVelocityX(-150);
 		  tile.body.allowGravity = false;
 		  tile.body.immovable = true;
 		});
@@ -291,9 +300,69 @@ export default class ScrollingWorld {
     this.spawnedEnemies.forEach(enemy => enemy.update(this.scene.time.now));
   }
 
-  update() {
-    this.groundSpawn();
+  _updateDifficulty(playTimeSeconds) {
+    // How long until max difficulty
+    const rampDuration = this.maxDifficulty;
+    const t = Math.min(playTimeSeconds / rampDuration, 1); // 0 → 1
+
+    // Scroll speed ramps from base → max
+    this.scrollSpeed =
+      this.baseScrollSpeed +
+      t * (this.maxScrollSpeed - this.baseScrollSpeed);
+
+    // Enemy spawn chance ramps from min → max
+    this.enemyChance =
+      this.enemyChanceMin +
+      t * (this.enemyChanceMax - this.enemyChanceMin);
+  }
+
+  _applyScrollSpeed() {
+    const sx = -this.scrollSpeed;
+
+    // ground tiles
+    /*
+    this.ground.children.iterate(tile => {
+      if (tile && tile.body) {
+        tile.body.setVelocityX(sx);
+      }
+    });
     
+
+    // platforms
+    this.platforms.children.iterate(tile => {
+      if (tile && tile.body) {
+        tile.body.setVelocityX(sx);
+      }
+    });
+
+    // spikes
+    this.spikes.children.iterate(tile => {
+      if (tile && tile.body) {
+        tile.body.setVelocityX(sx);
+      }
+    });
+    */
+
+    // flying enemies (use their helper if available)
+    this.spawnedEnemies.forEach(enemy => {
+      if (enemy.setScrollSpeed) {
+        enemy.setScrollSpeed(this.scrollSpeed + 100);
+      } else if (enemy.body) {
+        enemy.body.setVelocityX(-(this.scrollSpeed + 100));
+      }
+    });
+  }
+
+  update() {
+    // read elapsed time
+    const playTime = this.scene.playTime || 0;
+
+    // adjust scroll speed + enemy chance from time
+    this._updateDifficulty(playTime);
+    this._applyScrollSpeed();
+
+    this.groundSpawn();
+
     this.platformSpawn();
     this._cleanupPlatforms();
 
