@@ -138,7 +138,7 @@ export default class GameScene extends Phaser.Scene {
     } 
     else if(!isAbove && this.canCollideEnemyFlag) {
         this.canCollideEnemyFlag = false;
-        this.player.stats.health -= 50;
+        this.player.stats.health -= 10;
 
         //knock things around a bit
         playerBody.velocity.y = -200;
