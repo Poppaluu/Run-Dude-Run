@@ -8,7 +8,8 @@ export default class ScrollingWorld {
     this.T = tileSize;
     this.scrollSpeed = scrollSpeed;
     this.spawnedPlatforms = [];
-	this.spawnedSpikes = [];
+	  this.spawnedSpikes = [];
+    this.spawnedEnemies = [];
 
     this.tileBuilder = new TileBuilder(scene, tileSize);
 
@@ -49,8 +50,9 @@ export default class ScrollingWorld {
     this.platformChanceDecreaseOnSpawn = 0.25;     // drop chance to zero and below
     this.groundSinceLastPlatform = 0;        // how many columns since last platform
 	
-	// negative chances - Determines if spawning platform or obstacle.
-	this.negativeChance = 0;
+    // negative chances - Determines if spawning platform or obstacle.
+    this.negativeChance = 0;
+    this.enemyChance = 0.01;
 	
     // Other obstacles
     this.obstacleChances = {
@@ -58,6 +60,7 @@ export default class ScrollingWorld {
       // placeholders for future obstacles:
       spike: 0.0,
       flyingEnemy: () => this.enemyChance
+      
     };
 
     this._initGround();

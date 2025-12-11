@@ -32,8 +32,9 @@ export default class GameScene extends Phaser.Scene {
     // counting how manytime the player hit enemy
     this.hitCount = 0;
     this.startTime = Date.now();
-	// Spike Collision Flag 
-	this.canCollideFlag = true;
+    // Collision Flags
+    this.canCollideSpikeFlag = true;
+    this.canCollideEnemyFlag = true;
 
     // Collisions
     this.physics.add.collider(
@@ -58,7 +59,7 @@ export default class GameScene extends Phaser.Scene {
       this
     );
 
-    // Enemies (empty for now)
+    // Enemies
     this.physics.add.collider(
       this.player,
       this.world.enemies,
@@ -111,40 +112,60 @@ update(time, delta) {
   }
 
   handleEnemyCollision(player, enemy) {
+    const playerBody = player.body;
+    const enemyBody  = enemy.body;
 
+    if(!this.canCollideSpikeFlag) {
+      return;
+    }
+    
+    this.canCollideEnemyFlag = false;
 
-      const isAbove = player.body.bottom <= enemy.body.top;
+    const isAbove = player.body.bottom <= enemy.body.top;
 
-      if(isAbove){
-        console.log('Killed enemy!');
-        this.hitCount++;
-        enemy.disableBody(true, true);
+    if (isAbove) {
+      console.log('Killed enemy!');
+      this.hitCount++;
+      //player bounce up
+      playerBody.velocity.y = -500;
+      enemy.disableBody(true, true);
     } else {
         console.log('Bumped into the enemy!');
+        this.canCollideEnemyFlag = false;
         this.player.stats.health -= 50;
+
+        //knock things around a bit
+        playerBody.velocity.y = -200;
+        enemyBody.velocity.x = -100;
+
+        //Start short invincibility
+        this.time.delayedCall(800, () => {
+          this.canCollideEnemyFlag = true;
+        });
     }
+
     this.updateStatsText();
   }
   
   handleSpikesCollision(player, spikes) {
 	
-	if(!this.canCollideFlag) {
-	  return;
-	}
-	
-	this.canCollideFlag = false;
-	
-	
-	console.log('Hit Spike!');
-	this.hitCount++;
-	this.player.stats.health -= 10;
-	this.updateStatsText();
+    if(!this.canCollideSpikeFlag) {
+      return;
+    }
     
-	//Start short invincibility
-	this.time.delayedCall(800, () => {
-	  this.canCollideFlag = true;
-	});
-	  
+    this.canCollideSpikeFlag = false;
+    
+    
+    console.log('Hit Spike!');
+    this.hitCount++;
+    this.player.stats.health -= 10;
+    this.updateStatsText();
+      
+    //Start short invincibility
+    this.time.delayedCall(800, () => {
+      this.canCollideSpikeFlag = true;
+    });
+      
   }
 
   platformCollisionCheck(player, platform) {
