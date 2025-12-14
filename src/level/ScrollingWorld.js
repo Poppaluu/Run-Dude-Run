@@ -1,7 +1,6 @@
-import HealthPickup from '../pickups/HealthPickup.js';
-import SpeedPickup from '../pickups/SpeedPickup.js';
-import JumpPickup from '../pickups/JumpPickup.js';
-import EnemyPlaceholder from '../entities/EnemyPlaceholder.js';
+// src/level/ScrollingWorld.js
+import TileBuilder from './TileBuilder.js';
+import FlyingEnemy from '../entities/FlyingEnemy.js';
 
 export default class ScrollingWorld {
   constructor(scene, tileSize = 32, scrollSpeed = 150) {
@@ -9,191 +8,366 @@ export default class ScrollingWorld {
     this.T = tileSize;
     this.scrollSpeed = scrollSpeed;
 
-    // Physics groups for solid things
+    this.baseScrollSpeed = scrollSpeed;
+    this.scrollSpeed = scrollSpeed;
+    this.maxScrollSpeed = 350;
+
+    this.maxDifficulty = 120;
+
+    this.spawnedPlatforms = [];
+	  this.spawnedSpikes = [];
+    this.spawnedEnemies = [];
+
+    this.tileBuilder = new TileBuilder(scene, tileSize);
+
+    // Solid ground group
     this.ground = scene.physics.add.group({
       allowGravity: false,
       immovable: true
     });
 
+    // Platform group
     this.platforms = scene.physics.add.group({
       allowGravity: false,
       immovable: true
     });
 
-    // Pickups: normal group
+    // Pickup group
     this.pickups = scene.add.group();
 
-    // Enemies: physics group
+    // Enemy group
     this.enemies = scene.physics.add.group({
       allowGravity: false,
       immovable: true
     });
+	
+	// Spikes group
+	this.spikes = scene.physics.add.group({
+	  allowGravity: false,
+	  immovable: true
+	});
 
     this.groundRows = 3;
-    this.groundTopY = scene.scale.height - this.groundRows * this.T;
 
-    this.nextGroundX = 0;
-    this.lastWasHole = false;
-
-    // Tunable spawn chances
-    this.holeChance = 0.50;
-    this.platformOverHoleChance = 0.4;
-    this.platformOverGroundChance = 0.1;
-    this.enemyChance = 0.1;
-    this.pickupOnPlatformChance = 0.5;
-
-    this._initialFill();
-  }
-
-  // Fill enough tiles at the start to cover and extend past the screen
-  _initialFill() {
-    while (this._getRightmostX() < this.scene.scale.width + this.T * 4) {
-      this._spawnRandomColumn();
-    }
-  }
-
-  // Find the furthest X among ground + platforms
-  _getRightmostX() {
-    let max = 0;
-    const checkGroup = (group) => {
-      group.getChildren().forEach(obj => {
-        if (obj.x > max) max = obj.x;
-      });
+    // platform chances
+    this.platformChance = 0.005;              // current chance per update
+    this.platformChanceMin = 0.0001;          // never go below this
+    this.platformChanceMax = 0.25;           // never go above this
+    this.platformChanceIncreasePerColumn = 0.0004; // how much to increase per ground column recycled
+    this.platformChanceDecreaseOnSpawn = 0.25;     // drop chance to zero and below
+    this.groundSinceLastPlatform = 0;        // how many columns since last platform
+	
+    // negative chances - Determines if spawning platform or obstacle.
+    this.negativeChance = 0;
+    this.enemyChance = 0.01;
+    this.enemyChanceMin = 0.01;
+    this.enemyChanceMax = 0.10;
+	
+    // Other obstacles
+    this.obstacleChances = {
+      platform: () => this.platformChance,
+      // placeholders for future obstacles:
+      spike: 0.0,
+      flyingEnemy: () => this.enemyChance
+      
     };
 
-    checkGroup(this.ground);
-    checkGroup(this.platforms);
-
-    return max;
+    this._initGround();
   }
 
-  // One column (or several) of world: either ground stack or a hole
-  _spawnRandomColumn() {
-    const canMakeHole = !this.lastWasHole;
-    const makeHole = canMakeHole && Math.random() < this.holeChance;
+  // Fill the screen with ground columns, built by TileBuilder.
+  _initGround() {
+    const width = this.scene.scale.width;
+    const height = this.scene.scale.height;
 
-    if (makeHole) {
-      this.lastWasHole = true;
+    // how many vertical columns do we need to cover the screen + a bit extra
+    this.numColumns = Math.ceil(width / this.T) + 2;
+    this.groundColumns = [];
 
-      // Make bigger holes: 2–3 tiles wide
-      const holeWidth = 2 + Math.floor(Math.random() * 2); // 2 or 3
+    // top Y of the ground (3 rows high by default)
+    this.groundTopY = height - this.groundRows * this.T;
 
-      // Put a platform over the hole, at a random height
-      if (Math.random() < this.platformOverHoleChance) {
-        const platformHeightOffset = 2 + Math.floor(Math.random() * 10); // change height the platforms are put to
-        const platformY = this.groundTopY - this.T * platformHeightOffset;
-        this._spawnWoodPlatform(this.nextGroundX, platformY);
-      }
+    for (let col = 0; col < this.numColumns; col++) {
+      const x = col * this.T;
 
-      this.nextGroundX += this.T * holeWidth;
-      return;
-    }
-
-    this.lastWasHole = false;
-
-    // Make a stack of grass + mud at nextGroundX
-    for (let row = 0; row < this.groundRows; row++) {
-      const key = row === 0 ? 'grass_tile' : 'mud_tile';
-      const tile = this.ground.create(
-        this.nextGroundX,
-        this.groundTopY + row * this.T,
-        key
+      // use TileBuilder to create this column
+      const columnTiles = this.tileBuilder.buildGroundColumn(
+        this.ground,
+        x,
+        this.groundTopY,
+        this.groundRows
       );
-      tile.setOrigin(0, 0);
-      tile.body.setVelocityX(-this.scrollSpeed);
-    }
 
-    // Put a platform on top of ground by chance
-    if (Math.random() < this.platformOverGroundChance) {
-      const platformHeightOffset = 2 + Math.floor(Math.random() * 10); // change height the platforms are put to
-      const platformY = this.groundTopY - this.T * platformHeightOffset;
-      this._spawnWoodPlatform(this.nextGroundX, platformY);
-    }
+      // give every tile a scrolling velocity to the left
+      columnTiles.forEach(tile => {
+        tile.body.setVelocityX(-150);
+        tile.body.allowGravity = false;
+        tile.body.immovable = true;
+      });
 
-    // Spawn enemies by random
-    if (Math.random() < this.enemyChance) {
-      const enemy = new EnemyPlaceholder(
-        this.scene,
-        this.nextGroundX + this.T / 2,
-        this.groundTopY - 8
-      );
-      enemy.setScrollSpeed(this.scrollSpeed);
-      this.enemies.add(enemy);
+      this.groundColumns.push(columnTiles);
     }
-
-    this.nextGroundX += this.T;
   }
 
-  // Wood platform: 4 tiles wide – end, mid, mid, flipped end
-  _spawnWoodPlatform(startX, y) {
-    // left end
-    this._createPlatformTile(startX, y, 'platform_wood_end', false);
-
-    // middle tiles
-    this._createPlatformTile(startX + this.T, y, 'platform_wood', false);
-    this._createPlatformTile(startX + this.T * 2, y, 'platform_wood', false);
-
-    // right end flipped
-    this._createPlatformTile(
-      startX + this.T * 3,
-      y,
-      'platform_wood_end',
-      true
+  // Increase platform chance as ground recycles
+  _increasePlatformChance() {
+    this.platformChance = Math.min(
+      this.platformChanceMax,
+      this.platformChance + this.platformChanceIncreasePerColumn
     );
-
-    // Put a pickup on the platform (middle area) (chance)
-    if (Math.random() < this.pickupOnPlatformChance) {
-      const centerX = startX + this.T * 2;
-      const pickupY = y - this.T * 0.5;
-
-      const roll = Math.random();
-      let pickup;
-
-      if (roll < 0.33) {
-        pickup = new HealthPickup(this.scene, centerX, pickupY);
-      } else if (roll < 0.66) {
-        pickup = new SpeedPickup(this.scene, centerX, pickupY);
-      } else {
-        pickup = new JumpPickup(this.scene, centerX, pickupY);
-      }
-
-      // Give it an Arcade body and make it scroll left
-      this.scene.physics.add.existing(pickup); // dynamic body
-      pickup.body.setAllowGravity(false);
-      pickup.body.setImmovable(true);
-      pickup.body.setVelocityX(-this.scrollSpeed);
-
-      this.pickups.add(pickup);
-    }
   }
 
-  _createPlatformTile(x, y, key, flipX) {
-    const tile = this.platforms.create(x, y, key);
-    tile.setOrigin(0, 0);
-    tile.setFlipX(flipX);
-    tile.body.setVelocityX(-this.scrollSpeed);
-    return tile;
+  // Decrease platform chance right after a spawn
+  _decreasePlatformChanceOnSpawn() {
+    this.platformChance = Math.max(
+      this.platformChanceMin,
+      this.platformChance - this.platformChanceDecreaseOnSpawn
+    );
+    this.groundSinceLastPlatform = 0;
   }
 
-  // Called from GameScene.update()
-  update() {
-    // Despawn anything that has gone off the left side
-    this._cleanupGroup(this.ground);
-    this._cleanupGroup(this.platforms);
-    this._cleanupGroup(this.pickups);
-    this._cleanupGroup(this.enemies);
+  groundSpawn() {
+    const totalWidth = this.numColumns * this.T;
 
-    // Ensure we always have world extending past the right edge
-    while (this._getRightmostX() < this.scene.scale.width + this.T * 2) {
-      this._spawnRandomColumn();
-    }
-  }
+    this.groundColumns.forEach((columnTiles, index) => {
+      const leftGroundColumn = columnTiles[0];
 
-  _cleanupGroup(group) {
-    group.getChildren().forEach(obj => {
-      if (obj.x + this.T < 0) {
-        obj.destroy();
+      // when the whole column has gone off the left side
+      if (leftGroundColumn.x + this.T < 0) {
+        // X position where the new column should appear (far right)
+        const newX = leftGroundColumn.x + totalWidth;
+
+        // destroy the old tiles
+        columnTiles.forEach(tile => tile.destroy());
+
+        // build a fresh ground column using TileBuilder
+        const newColumn = this.tileBuilder.buildGroundColumn(
+          this.ground,
+          newX,
+          this.groundTopY,
+          this.groundRows
+        );
+
+        // give them scrolling velocity again
+        newColumn.forEach(tile => {
+          tile.body.setVelocityX(-150);
+          tile.body.allowGravity = false;
+          tile.body.immovable = true;
+        });
+
+        // replace the entry in the array
+        this.groundColumns[index] = newColumn;
+
+        // track distance since last platform & ramp chance up slowly
+        this.groundSinceLastPlatform++;
+        this._increasePlatformChance();
       }
     });
+  }
+
+  // This both handles platform and spikes. 
+  platformSpawn() {
+    if (Math.random() < this.platformChance) {
+		const width = this.scene.scale.width;
+
+		const newX = width + this.T;
+
+		const minLength = 3;
+		const maxLength = 7;
+		const length = minLength + Math.floor(Math.random() * (maxLength - minLength + 1));
+
+		const minRowsAboveGround = 4;
+		const maxRowsAboveGround = 10;
+		const rowsAboveGround =
+		minRowsAboveGround + Math.floor(Math.random() * (maxRowsAboveGround - minRowsAboveGround + 1));
+
+		const newY = this.groundTopY - rowsAboveGround * this.T;	
+	  if(this.negativeChance < 3) {
+        // returns an array of tile sprites
+        const platformTiles = this.tileBuilder.buildWoodPlatform(
+          this.platforms,
+          newX,
+          newY,
+          length
+        );
+
+        platformTiles.forEach(tile => {
+          tile.body.setVelocityX(-150);
+          tile.body.allowGravity = false;
+          tile.body.immovable = true;
+        });
+
+        // track the entire platform as one unit
+        this.spawnedPlatforms.push(platformTiles);
+
+        // reduce spawn chance
+        this._decreasePlatformChanceOnSpawn();
+		this.negativeChance++;
+	  }
+	  else {
+		// returns an array of tile sprites
+		const spikesTiles = this.tileBuilder.buildSpikes(
+		  this.spikes,
+		  newX,
+		  newY,
+		  length
+		);
+		
+		spikesTiles.forEach(tile => {
+		  tile.body.setVelocityX(-150);
+		  tile.body.allowGravity = false;
+		  tile.body.immovable = true;
+		});
+		
+		// track the entire spikes as one unit
+		this.spawnedSpikes.push(spikesTiles);
+		
+		// reduce spawn chance, shares same with platform
+		this._decreasePlatformChanceOnSpawn();
+		this.negativeChance = 0;
+	  }	
+	}
+  }
+  
+
+
+  spawnEnemy() {
+    if (Math.random() < this.enemyChance) {
+      const width = this.scene.scale.width;
+      const newX = width + this.T;
+
+      const minRowsAboveGround = 2;
+      const maxRowsAboveGround = 12;
+
+      const rowsAboveGround =
+        minRowsAboveGround +
+        Math.floor(Math.random() * (maxRowsAboveGround - minRowsAboveGround + 1));
+
+      const newY = this.groundTopY - rowsAboveGround * this.T;
+
+      const flyingEnemy = new FlyingEnemy(this.scene, newX, newY);
+
+      // add to physics group if you plan collisions vs player
+      this.enemies.add(flyingEnemy);
+
+      flyingEnemy.setScrollSpeed(this.scrollSpeed + 100);
+
+      this.spawnedEnemies.push(flyingEnemy);
+    }
+  }
+
+  _cleanupPlatforms() {
+    const leftLimit = -this.T * 2;
+
+    this.spawnedPlatforms = this.spawnedPlatforms.filter(platformTiles => {
+      const rightmost = platformTiles[platformTiles.length - 1];
+
+      if (rightmost.x < leftLimit) {
+        // destroy whole platform
+        platformTiles.forEach(tile => tile.destroy());
+        return false; // remove from array
+      }
+
+      return true; // keep it
+    });
+	
+	this.spawnedSpikes = this.spawnedSpikes.filter(spikesTiles => {
+	  const rightmost = spikesTiles[spikesTiles.length - 1];
+	  
+	  if (rightmost.x < leftLimit) {
+		//destroy whole spikes
+		spikesTiles.forEach(tile => tile.destroy());
+		return false; // remove from array
+	  }
+	  
+	  return true; // keep it
+	});
+  }
+
+  _cleanupEnemies() {
+    const leftLimit = -this.T * 2;
+
+    this.spawnedEnemies = this.spawnedEnemies.filter(flyingEnemy => {
+      if (flyingEnemy.x < leftLimit) {
+        flyingEnemy.destroy();
+        return false;
+      }
+      return true;
+    });
+  }
+
+  _updateEnemies() {
+    this.spawnedEnemies.forEach(enemy => enemy.update(this.scene.time.now));
+  }
+
+  _updateDifficulty(playTimeSeconds) {
+    // How long until max difficulty
+    const rampDuration = this.maxDifficulty;
+    const t = Math.min(playTimeSeconds / rampDuration, 1); // 0 → 1
+
+    // Scroll speed ramps from base → max
+    this.scrollSpeed =
+      this.baseScrollSpeed +
+      t * (this.maxScrollSpeed - this.baseScrollSpeed);
+
+    // Enemy spawn chance ramps from min → max
+    this.enemyChance =
+      this.enemyChanceMin +
+      t * (this.enemyChanceMax - this.enemyChanceMin);
+  }
+
+  _applyScrollSpeed() {
+    const sx = -this.scrollSpeed;
+
+    // ground tiles
+    /*
+    this.ground.children.iterate(tile => {
+      if (tile && tile.body) {
+        tile.body.setVelocityX(sx);
+      }
+    });
+    
+
+    // platforms
+    this.platforms.children.iterate(tile => {
+      if (tile && tile.body) {
+        tile.body.setVelocityX(sx);
+      }
+    });
+
+    // spikes
+    this.spikes.children.iterate(tile => {
+      if (tile && tile.body) {
+        tile.body.setVelocityX(sx);
+      }
+    });
+    */
+
+    // flying enemies (use their helper if available)
+    this.spawnedEnemies.forEach(enemy => {
+      if (enemy.setScrollSpeed) {
+        enemy.setScrollSpeed(this.scrollSpeed + 100);
+      } else if (enemy.body) {
+        enemy.body.setVelocityX(-(this.scrollSpeed + 100));
+      }
+    });
+  }
+
+  update() {
+    // read elapsed time
+    const playTime = this.scene.playTime || 0;
+
+    // adjust scroll speed + enemy chance from time
+    this._updateDifficulty(playTime);
+    this._applyScrollSpeed();
+
+    this.groundSpawn();
+
+    this.platformSpawn();
+    this._cleanupPlatforms();
+
+    this.spawnEnemy();
+    this._cleanupEnemies();
+    this._updateEnemies();
   }
 }

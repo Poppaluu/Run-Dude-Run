@@ -1,13 +1,13 @@
 import Phaser from 'phaser';
 import BootScene from './scenes/BootScene.js';
-import PreloadScene from './scenes/PreloadScene.js';
+import PreLoadScene from './scenes/PreLoadScene.js';
 import GameScene from './scenes/GameScene.js';
 import MenuScene from './scenes/MenuScene.js';
 
 const config = {
   type: Phaser.AUTO,
-  width: 1600,
-  height: 600,
+  width: 1200,
+  height: 550,
   pixelArt: true,
   roundPixels: true,
   backgroundColor: '#1d1d1d',
@@ -18,7 +18,7 @@ const config = {
       debug: false
     }
   },
-  scene: [BootScene, PreloadScene, MenuScene, GameScene]
+  scene: [BootScene, PreLoadScene, MenuScene, GameScene]
 };
 
 new Phaser.Game(config);

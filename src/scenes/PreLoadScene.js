@@ -10,18 +10,55 @@ export default class PreloadScene extends Phaser.Scene {
     this.add.text(20, 20, 'Loading...', { fontSize: '28px', fill: '#ffffff' });
 
     // platform and ground tiles
-    this.load.image('grass_tile', 'assets/images/platforms/grass_tile.png');
-    this.load.image('mud_tile', 'assets/images/platforms/mud_tile.png');
+    this.load.image('grass_tile', 'assets/images/platforms/grass_tile2.png');
+    this.load.image('mud_tile', 'assets/images/platforms/mud_tile2.png');
     this.load.image('platform_wood', 'assets/images/platforms/platform_wood.png');
     this.load.image('platform_wood_end', 'assets/images/platforms/platform_wood_end.png');
+    this.load.image('bg', 'assets/images/background/forest.jpg');
+    this.load.spritesheet('ufoEnemy', 'assets/images/obstacles/ufo_enemy.png',{
+      frameWidth: 32,
+      frameHeight: 32
+    })
 
     //player sprite
+    this.load.spritesheet('player', 'assets/images/player/player_run.png', {
+      frameWidth: 32,
+      frameHeight: 48
+    });
 
     //enemy sprite
+	
+	//Obstacle sprite
+	this.load.image('spike_tile', 'assets/images/obstacles/spike_tile.png');
 
   }
 
   create() {
+
+    // run
+    this.anims.create({
+      key: 'Running',
+      frames: this.anims.generateFrameNumbers('player', { start: 0, end: 5 }),
+      frameRate: 10,         // 100 ms per frame
+      repeat: -1
+    });
+
+    // Idle
+    this.anims.create({
+      key: 'Idle',
+      frames: this.anims.generateFrameNumbers('player', { start: 6, end: 11 }),
+      frameRate: 10,
+      repeat: -1
+    });
+
+    // fly
+    this.anims.create({
+      key: 'Fly',
+      frames: this.anims.generateFrameNumbers('ufoEnemy', { start: 0, end: 3 }),
+      frameRate: 10,
+      repeat: -1
+    });
+
     this.scene.start("MenuScene");
   }
 }
