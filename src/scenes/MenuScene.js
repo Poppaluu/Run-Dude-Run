@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { registerPlayer } from "../api/leaderboard.js";
-import { setPlayerInfo } from "../utils/storage.js"; // playerId 저장은 더 이상 쓰지 않는 방향 권장
+import { setPlayerInfo } from "../utils/storage.js";
 import { NICKNAME_INPUT_STYLE } from "../config";
 import { supabase } from "../api/supabaseClient";
 
